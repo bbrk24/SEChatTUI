@@ -21,6 +21,13 @@ struct HTTPResponse: CustomDebugStringConvertible {
             return firstPart + ")"
         }
     }
+
+    func assertResponseCode(in range: Range<Int> = 200..<300) throws {
+        guard let statusCode,
+              range.contains(statusCode) else {
+            throw SEChatTUIError.badResponseCode(statusCode)
+        }
+    }
 }
 
 protocol HTTPClient {
@@ -34,7 +41,6 @@ protocol HTTPClient {
 struct HTTPClientImpl: HTTPClient {
     init() {
         let sessionConfiguration = AF.sessionConfiguration
-
         sessionConfiguration.httpCookieAcceptPolicy = .always
         sessionConfiguration.httpShouldSetCookies = true
     }
@@ -51,7 +57,7 @@ struct HTTPClientImpl: HTTPClient {
             encoder: JSONParameterEncoder.default
         )
 
-        let resp = await req.serializingData().response
+        let resp = await req.serializingData(emptyResponseCodes: [204, 205, 404]).response
 
         return try resp.result.map {
             HTTPResponse(

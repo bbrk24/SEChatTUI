@@ -2,7 +2,7 @@ import SwiftSoup
 import Alamofire
 
 protocol AuthHandler {
-    func login(email: String, password: String) async throws
+    func login(email: String, password: String) async throws -> (fkey: String, id: String)
 }
 
 struct AuthHandlerImpl: AuthHandler {
@@ -24,24 +24,24 @@ struct AuthHandlerImpl: AuthHandler {
         return fkey
     }
 
-    func login(email: String, password: String) async throws {
+    func login(email: String, password: String) async throws -> (fkey: String, id: String) {
         let fkey = try await getFKey()
 
-        _ = try await client.sendRequest(
+        try await client.sendRequest(
             .post,
             "https://meta.stackexchange.com/users/login-or-signup/validation/track",
             LoginModel(email: email, password: password, fkey: fkey)
-        )
+        ).assertResponseCode()
 
-        let response = try await client.sendRequest(
+        let loginResp = try await client.sendRequest(
             .post,
             "https://meta.stackexchange.com/users/login",
             LoadModel(email: email, password: password, fkey: fkey)
         )
 
-        let encoding = Util.getEncoding(headers: response.headers)
-        guard let htmlStr = String(data: response.data, encoding: encoding) else {
-            throw SEChatTUIError.encodingMismatch(response.data, encoding)
+        let loginEnc = Util.getEncoding(headers: loginResp.headers)
+        guard let htmlStr = String(data: loginResp.data, encoding: loginEnc) else {
+            throw SEChatTUIError.encodingMismatch(loginResp.data, loginEnc)
         }
 
         let title = try SwiftSoup.parse(htmlStr).title()
@@ -50,7 +50,23 @@ struct AuthHandlerImpl: AuthHandler {
         }
 
         // FIXME: this 404's
-        let response3 = try await client.sendRequest(.post, "https://meta.stackexchange.com/users/login/universal/request", nil as Empty?)
-        print(response3)
+        try await client.sendRequest(.post, "https://meta.stackexchange.com/users/login/universal/request", nil as Empty?).assertResponseCode()
+        
+        let chatFavoritesResp = try await client.sendRequest(.get, "https://chat.stackexchange.com/chats/join/favorite", nil as Empty?)
+        let chatFavoritesEnc = Util.getEncoding(headers: chatFavoritesResp.headers)
+
+        guard let htmlStr = String(data: chatFavoritesResp.data, encoding: chatFavoritesEnc) else {
+            throw SEChatTUIError.encodingMismatch(chatFavoritesResp.data, chatFavoritesEnc)
+        }
+        let document = try SwiftSoup.parse(htmlStr)
+
+        let userURLComponents = try document.select("a.topbar-menu-links").attr("href").split(separator: "/")
+        if userURLComponents.count < 3 {
+            throw SEChatTUIError.other("Couldn't determine chat user ID (URL components: \(userURLComponents))")
+        }
+
+        let chatFKey = try document.select("input[name=fkey]").attr("value")
+
+        return (chatFKey, String(userURLComponents[2]))
     }
 }

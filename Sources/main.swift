@@ -3,6 +3,7 @@
 
 import Alamofire
 
+// Adding `some` here causes a segfault
 let httpClient: HTTPClient = HTTPClientImpl()
 let auth: AuthHandler = AuthHandlerImpl(client: httpClient)
 
@@ -11,6 +12,6 @@ let email = readLine()!
 print("Enter your password:", terminator: " ")
 let password = readLine()!
 
-try await auth.login(email: email, password: password)
+print(try await auth.login(email: email, password: password))
 print(AF.sessionConfiguration.httpCookieStorage?.cookies as Any)
 print(AF.sessionConfiguration.urlCredentialStorage?.allCredentials as Any)
