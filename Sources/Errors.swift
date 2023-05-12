@@ -4,7 +4,7 @@ enum SEChatTUIError: Error, CustomStringConvertible {
     case encodingMismatch(Data, String.Encoding)
     case captcha
     case badResponseCode(Int?)
-    case other(String)
+    case htmlParserError(String)
 
     var description: String {
         switch self {
@@ -18,8 +18,8 @@ enum SEChatTUIError: Error, CustomStringConvertible {
             } else {
                 return "No HTTP status"
             }
-        case .other(let desc):
-            return desc
+        case .htmlParserError(let desc):
+            return "HTML parsing error: " + desc
         }
     }
 }

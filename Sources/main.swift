@@ -2,6 +2,7 @@
 // https://docs.swift.org/swift-book
 
 import Alamofire
+import Foundation
 
 // Adding `some` here causes a segfault
 let httpClient: HTTPClient = HTTPClientImpl()
@@ -9,9 +10,26 @@ let auth: AuthHandler = AuthHandlerImpl(client: httpClient)
 
 print("Enter your email address:", terminator: " ")
 let email = readLine()!
-print("Enter your password:", terminator: " ")
-let password = readLine()!
+var password: String?
 
-print(try await auth.login(email: email, password: password))
-print(AF.sessionConfiguration.httpCookieStorage?.cookies as Any)
-print(AF.sessionConfiguration.urlCredentialStorage?.allCredentials as Any)
+if let cookie = try? String(contentsOfFile: "cookie") {
+    AF.sessionConfiguration.httpCookieStorage!.setCookie(
+        HTTPCookie(properties: [
+            .name: "acct",
+            .value: cookie,
+            .domain: "stackexchange.com",
+            .path: "/",
+            .secure: true
+        ])!
+    )
+    print("Set cookie!")
+} else {
+    print("Enter your password:", terminator: " ")
+    password = readLine()
+}
+
+do {
+    print(try await auth.login(email: email, password: password, host: "codegolf.stackexchange.com"))
+} catch {
+    print("ERROR:", error)
+}

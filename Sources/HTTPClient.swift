@@ -8,7 +8,7 @@ struct HTTPResponse: CustomDebugStringConvertible {
 
     var debugDescription: String {
         var dataString: String
-        if let str = String(data: data, encoding: .utf8) {
+        if data.count < 1024, let str = String(data: data, encoding: .utf8) {
             dataString = str.debugDescription
         } else {
             dataString = "<\(data.count) bytes>"
@@ -41,8 +41,14 @@ protocol HTTPClient {
 struct HTTPClientImpl: HTTPClient {
     init() {
         let sessionConfiguration = AF.sessionConfiguration
+        sessionConfiguration.httpCookieStorage = .shared
         sessionConfiguration.httpCookieAcceptPolicy = .always
         sessionConfiguration.httpShouldSetCookies = true
+        sessionConfiguration.httpCookieStorage?.cookieAcceptPolicy = .always
+        sessionConfiguration.headers.add(.init(
+            name: "User-Agent", 
+            value: "Mozilla/5.0 (compatible; automated; +https://github.com/bbrk24/SEChatTUI)"
+        ))
     }
 
     func sendRequest(

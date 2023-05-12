@@ -2,7 +2,7 @@ import SwiftSoup
 import Alamofire
 
 protocol AuthHandler {
-    func login(email: String, password: String) async throws -> (fkey: String, id: String)
+    func login(email: String, password: String?, host: String) async throws -> (fkey: String, id: String)
 }
 
 struct AuthHandlerImpl: AuthHandler {
@@ -24,33 +24,36 @@ struct AuthHandlerImpl: AuthHandler {
         return fkey
     }
 
-    func login(email: String, password: String) async throws -> (fkey: String, id: String) {
+    func login(email: String, password: String?, host: String) async throws -> (fkey: String, id: String) {
         let fkey = try await getFKey()
 
-        try await client.sendRequest(
-            .post,
-            "https://meta.stackexchange.com/users/login-or-signup/validation/track",
-            LoginModel(email: email, password: password, fkey: fkey)
-        ).assertResponseCode()
+        if let password, !password.isEmpty {
+            try await client.sendRequest(
+                .post,
+                "https://\(host)/users/login-or-signup/validation/track",
+                LoginModel(email: email, password: password, fkey: fkey)
+            ).assertResponseCode()
 
-        let loginResp = try await client.sendRequest(
-            .post,
-            "https://meta.stackexchange.com/users/login",
-            LoadModel(email: email, password: password, fkey: fkey)
-        )
+            let loginResp = try await client.sendRequest(
+                .post,
+                "https://\(host)/users/login",
+                LoadModel(email: email, password: password, fkey: fkey)
+            )
+            try loginResp.assertResponseCode()
 
-        let loginEnc = Util.getEncoding(headers: loginResp.headers)
-        guard let htmlStr = String(data: loginResp.data, encoding: loginEnc) else {
-            throw SEChatTUIError.encodingMismatch(loginResp.data, loginEnc)
+            let loginEnc = Util.getEncoding(headers: loginResp.headers)
+            guard let htmlStr = String(data: loginResp.data, encoding: loginEnc) else {
+                throw SEChatTUIError.encodingMismatch(loginResp.data, loginEnc)
+            }
+
+            let title = try SwiftSoup.parse(htmlStr).title()
+            if title.contains("Human verification") {
+                throw SEChatTUIError.captcha
+            }
+
+            // FIXME: this 404's
+            try await client.sendRequest(.post, "https://\(host)/users/login/universal/request", nil as Empty?).assertResponseCode()
         }
-
-        let title = try SwiftSoup.parse(htmlStr).title()
-        if title.contains("Human verification") {
-            throw SEChatTUIError.captcha
-        }
-
-        // FIXME: this 404's
-        try await client.sendRequest(.post, "https://meta.stackexchange.com/users/login/universal/request", nil as Empty?).assertResponseCode()
         
         let chatFavoritesResp = try await client.sendRequest(.get, "https://chat.stackexchange.com/chats/join/favorite", nil as Empty?)
         let chatFavoritesEnc = Util.getEncoding(headers: chatFavoritesResp.headers)
@@ -60,9 +63,9 @@ struct AuthHandlerImpl: AuthHandler {
         }
         let document = try SwiftSoup.parse(htmlStr)
 
-        let userURLComponents = try document.select("a.topbar-menu-links").attr("href").split(separator: "/")
+        let userURLComponents = try document.select(".topbar-menu-links a").attr("href").split(separator: "/")
         if userURLComponents.count < 3 {
-            throw SEChatTUIError.other("Couldn't determine chat user ID (URL components: \(userURLComponents))")
+            throw SEChatTUIError.htmlParserError("Couldn't determine chat user ID (URL components: \(userURLComponents))")
         }
 
         let chatFKey = try document.select("input[name=fkey]").attr("value")
