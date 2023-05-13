@@ -8,8 +8,8 @@ struct HTTPResponse: CustomDebugStringConvertible {
 
     var debugDescription: String {
         var dataString: String
-        if data.count < 1024, let str = String(data: data, encoding: .utf8) {
-            dataString = str.debugDescription
+        if let str = String(data: data, encoding: .utf8) {
+            dataString = str.prefix(1536).debugDescription
         } else {
             dataString = "<\(data.count) bytes>"
         }
@@ -22,10 +22,14 @@ struct HTTPResponse: CustomDebugStringConvertible {
         }
     }
 
-    func assertResponseCode(in range: some RangeExpression<Int> = 200..<300) throws {
+    func assertResponseCode(
+        in range: some RangeExpression<Int> = 200..<300,
+        _const file: StaticString = #fileID,
+        _const line: UInt = #line
+    ) throws {
         guard let statusCode,
               range.contains(statusCode) else {
-            throw SEChatTUIError.badResponseCode(statusCode)
+            throw SEChatTUIError.badResponseCode(statusCode, file: file, line: line)
         }
     }
 }

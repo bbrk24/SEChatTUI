@@ -78,4 +78,11 @@ enum Util {
         paramcharset.remove(charactersIn: "?&=;")
         return paramcharset
     }()
+
+    @discardableResult
+    static func setInterval(seconds interval: TimeInterval, tolerance: TimeInterval = 0.004, action: @escaping () -> Void) -> Timer {
+        let timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { _ in action() }
+        timer.tolerance = tolerance
+        return timer
+    }
 }

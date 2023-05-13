@@ -4,11 +4,13 @@
 import Alamofire
 import Foundation
 
+try await { // IIFE, so as not to pollute the global namespace
+
 let host = "codegolf.stackexchange.com"
 
 // Adding `some` here causes a segfault
-let httpClient: HTTPClient = HTTPClientImpl()
-let auth: AuthHandler = AuthHandlerImpl(client: httpClient)
+let httpClient: some HTTPClient = HTTPClientImpl()
+let auth: some AuthHandler = AuthHandlerImpl(client: httpClient)
 
 print("Enter your email address:", terminator: " ")
 let email = readLine()!
@@ -43,14 +45,13 @@ if let sechatusrCookie = try? String(contentsOfFile: "sechatusr.cookie") {
         .originURL: URL(string: "https://chat.stackexchange.com")!,
         .path: "/",
         .secure: "TRUE",
-        // sechatusr cookies expire stupid fast
         .expires: Date().addingTimeInterval(1)
     ])!)
 }
 
 let user = try await auth.login(email: email, password: password, host: host)
-let room = Room(user: user, id: 145982, client: httpClient)
+
+let room = Room(user: user, id: 1, client: httpClient)
 try await room.send(message: "Does it still work?")
 
-let sechatusrCookie = AF.sessionConfiguration.httpCookieStorage!.cookies!.first { $0.name == "sechatusr" }!.value
-try? sechatusrCookie.write(toFile: "sechatusr.cookie", atomically: false, encoding: .utf8)
+}()

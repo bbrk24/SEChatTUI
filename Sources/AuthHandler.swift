@@ -59,13 +59,25 @@ struct AuthHandlerImpl: AuthHandler {
 
             let title = try SwiftSoup.parse(loginHTMLStr).title()
             if title.contains("Human verification") {
-                throw SEChatTUIError.captcha
+                throw SEChatTUIError.captcha()
             }
+
+            print(AF.sessionConfiguration.httpCookieStorage?.cookies as Any)
         }
 
-        let chatResp = try await httpClient.sendRequest(
+        // // Fire and forget this request. Other clients use it, and it doesn't do any harm, but it doesn't seem to do anything.
+        // Task { [client] in // Capture [client] explicitly as not to capture [self] implicitly
+        //     try? await client.sendRequest(
+        //         .post, 
+        //         "https://\(host)/users/login/universal/request",
+        //         headers: [:],
+        //         body: nil as Empty?
+        //     )
+        // }
+
+        let chatResp = try await client.sendRequest(
             .get,
-            "https://chat.stackexchange.com/?tab=site&sort=active&host=\(host)",
+            "https://chat.stackexchange.com/chats/join/favorite",
             headers: [
                 "Referer": baseURL
             ],
@@ -78,7 +90,9 @@ struct AuthHandlerImpl: AuthHandler {
 
         let userURLComponents = try document.select(".topbar-menu-links a").attr("href").split(separator: "/")
         guard userURLComponents.count == 3, let chatID = Int(userURLComponents[1]) else {
-            throw SEChatTUIError.htmlParserError("Couldn't determine chat user ID (URL components: \(userURLComponents))")
+            throw SEChatTUIError.htmlParserError(
+                "Couldn't determine chat user ID (URL components: \(userURLComponents)). This probably means login failed."
+            )
         }
 
         let chatFKey = try document.select("input[name=fkey]").attr("value")
