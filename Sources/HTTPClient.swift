@@ -63,7 +63,7 @@ struct HTTPClientImpl: HTTPClient {
             method: method,
             parameters: body,
             headers: headers
-        )//.redirect(using: .doNotFollow)
+        )
 
         let resp = await req.serializingData(emptyResponseCodes: [204, 205, 404]).response
 

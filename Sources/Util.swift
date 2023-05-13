@@ -1,3 +1,5 @@
+import Foundation
+
 enum Util {
     static func getEncoding(headers: [String: String]) -> String.Encoding {
         // If there's no Content-Type header, we can't know; assume ASCII
@@ -70,4 +72,10 @@ enum Util {
         }
         return str
     }
+
+    static var paramcharset: CharacterSet = {
+        var paramcharset = CharacterSet.urlQueryAllowed
+        paramcharset.remove(charactersIn: "?&=;")
+        return paramcharset
+    }()
 }

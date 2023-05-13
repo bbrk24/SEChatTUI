@@ -6,3 +6,8 @@ struct LoadModel: Encodable {
     var oauth_version = ""
     var oauth_server = ""
 }
+
+struct User: Identifiable {
+    var fkey: String
+    var id: Int
+}

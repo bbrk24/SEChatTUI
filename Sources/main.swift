@@ -4,6 +4,8 @@
 import Alamofire
 import Foundation
 
+let host = "codegolf.stackexchange.com"
+
 // Adding `some` here causes a segfault
 let httpClient: HTTPClient = HTTPClientImpl()
 let auth: AuthHandler = AuthHandlerImpl(client: httpClient)
@@ -14,35 +16,41 @@ var password: String?
 
 if let acctCookie = try? String(contentsOfFile: "acct.cookie"),
    let uauthCookie = try? String(contentsOfFile: "uauth.cookie") {
-    let formatter = DateFormatter()
-    formatter.locale = Locale(identifier: "en_US_POSIX")
-    formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-
-    AF.sessionConfiguration.httpCookieStorage!.setCookie(
-        HTTPCookie(properties: [
-            .name: "acct",
-            .value: acctCookie,
-            .domain: ".stackexchange.com",
-            .path: "/",
-            .secure: true
-        ])!)
-    AF.sessionConfiguration.httpCookieStorage!.setCookie(
-        HTTPCookie(properties: [
-            .name: "uauth",
-            .value: uauthCookie,
-            .domain: ".codegolf.stackexchange.com",
-            .path: "/",
-            .secure: true
-        ])!
-    )
+    AF.sessionConfiguration.httpCookieStorage!.setCookie(HTTPCookie(properties: [
+        .name: "acct",
+        .value: acctCookie,
+        .domain: ".stackexchange.com",
+        .path: "/",
+        .secure: "TRUE"
+    ])!)
+    AF.sessionConfiguration.httpCookieStorage!.setCookie(HTTPCookie(properties: [
+        .name: "uauth",
+        .value: uauthCookie,
+        .domain: "." + host,
+        .path: "/",
+        .secure: "TRUE"
+    ])!)
     print("Set cookies!")
 } else {
     print("Enter your password:", terminator: " ")
     password = readLine()
 }
 
-do {
-    print(try await auth.login(email: email, password: password, host: "codegolf.stackexchange.com"))
-} catch {
-    print("ERROR:", error)
+if let sechatusrCookie = try? String(contentsOfFile: "sechatusr.cookie") {
+    AF.sessionConfiguration.httpCookieStorage!.setCookie(HTTPCookie(properties: [
+        .name: "sechatusr",
+        .value: sechatusrCookie,
+        .originURL: URL(string: "https://chat.stackexchange.com")!,
+        .path: "/",
+        .secure: "TRUE",
+        // sechatusr cookies expire stupid fast
+        .expires: Date().addingTimeInterval(1)
+    ])!)
 }
+
+let user = try await auth.login(email: email, password: password, host: host)
+let room = Room(user: user, id: 145982, client: httpClient)
+try await room.send(message: "Does it still work?")
+
+let sechatusrCookie = AF.sessionConfiguration.httpCookieStorage!.cookies!.first { $0.name == "sechatusr" }!.value
+try? sechatusrCookie.write(toFile: "sechatusr.cookie", atomically: false, encoding: .utf8)

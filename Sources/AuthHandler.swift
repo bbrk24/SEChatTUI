@@ -3,7 +3,7 @@ import Alamofire
 import Foundation
 
 protocol AuthHandler {
-    func login(email: String, password: String?, host: String) async throws -> (fkey: String, id: String)
+    func login(email: String, password: String?, host: String) async throws -> User
 }
 
 struct AuthHandlerImpl: AuthHandler {
@@ -32,23 +32,19 @@ struct AuthHandlerImpl: AuthHandler {
         return fkey
     }
 
-    func login(email: String, password: String?, host: String) async throws -> (fkey: String, id: String) {
+    func login(email: String, password: String?, host: String) async throws -> User {
         let fkey = try await getFKey(host)
-
-        var paramcharset = CharacterSet.urlQueryAllowed
-        paramcharset.remove(charactersIn: "?&=;")
+        let baseURL = "https://\(host)/"
 
         if let password, !password.isEmpty {
-            let baseURL = "https://\(host)/"
-
             try await client.sendRequest(
                 .post,
-                "https://\(host)/users/login-or-signup/validation/track?email=\(email)&password=\(password.addingPercentEncoding(withAllowedCharacters: paramcharset)!)&fkey=\(fkey)&isSignup=false&isLogin=true&isPassword=false&isAddLogin=false&hasCaptcha=false&ssrc=head&submitButton=Log%20In",
+                "https://\(host)/users/login-or-signup/validation/track?email=\(email)&password=\(password.addingPercentEncoding(withAllowedCharacters: Util.paramcharset)!)&fkey=\(fkey)&isSignup=false&isLogin=true&isPassword=false&isAddLogin=false&hasCaptcha=false&ssrc=head&submitButton=Log%20In",
                 headers: [:],
                 body: nil as Empty?
             ).assertResponseCode()
 
-            let loginURL = "https://\(host)/users/login?ssrc=head&returnurl=\(baseURL.addingPercentEncoding(withAllowedCharacters: paramcharset)!)"
+            let loginURL = "https://\(host)/users/login?ssrc=head&returnurl=\(baseURL.addingPercentEncoding(withAllowedCharacters: Util.paramcharset)!)"
             let loginResp = try await client.sendRequest(
                 .post,
                 loginURL,
@@ -66,27 +62,27 @@ struct AuthHandlerImpl: AuthHandler {
                 throw SEChatTUIError.captcha
             }
         }
-        
-        let chatFavoritesResp = try await client.sendRequest(
+
+        let chatResp = try await httpClient.sendRequest(
             .get,
-            "https://chat.stackexchange.com/chats/join/favorite",
-            headers: [:],
+            "https://chat.stackexchange.com/?tab=site&sort=active&host=\(host)",
+            headers: [
+                "Referer": baseURL
+            ],
             body: nil as Empty?
         )
+        try chatResp.assertResponseCode()
 
-        let chatFavoritesHTMLStr = try Util.getDataString(chatFavoritesResp)
-        let document = try SwiftSoup.parse(chatFavoritesHTMLStr)
+        let chatHTMLStr = try Util.getDataString(chatResp)
+        let document = try SwiftSoup.parse(chatHTMLStr)
 
-        // FIXME: what is going on here
-        // let userURLComponents = try document.select(".topbar-menu-links a").attr("href").split(separator: "/")
-        // if userURLComponents.count != 3 {
-        //     throw SEChatTUIError.htmlParserError("Couldn't determine chat user ID (URL components: \(userURLComponents))")
-        // }
-        // let chatID = String(userURLComponents[2])
-        let chatID = "543214"
+        let userURLComponents = try document.select(".topbar-menu-links a").attr("href").split(separator: "/")
+        guard userURLComponents.count == 3, let chatID = Int(userURLComponents[1]) else {
+            throw SEChatTUIError.htmlParserError("Couldn't determine chat user ID (URL components: \(userURLComponents))")
+        }
 
         let chatFKey = try document.select("input[name=fkey]").attr("value")
 
-        return (chatFKey, chatID)
+        return User(fkey: chatFKey, id: chatID)
     }
 }
