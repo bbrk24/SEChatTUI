@@ -16,4 +16,6 @@ struct LoadModel: Encodable {
     var password: String
     var fkey: String
     var ssrc = "head"
+    var oauth_version = ""
+    var oauth_server = ""
 }

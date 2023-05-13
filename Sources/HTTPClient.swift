@@ -22,7 +22,7 @@ struct HTTPResponse: CustomDebugStringConvertible {
         }
     }
 
-    func assertResponseCode(in range: Range<Int> = 200..<300) throws {
+    func assertResponseCode(in range: some RangeExpression<Int> = 200..<300) throws {
         guard let statusCode,
               range.contains(statusCode) else {
             throw SEChatTUIError.badResponseCode(statusCode)
@@ -34,7 +34,8 @@ protocol HTTPClient {
     func sendRequest(
         _ method: HTTPMethod,
         _ url: URLConvertible,
-        _ body: (some Encodable)?
+        headers: HTTPHeaders,
+        body: (some Encodable)?
     ) async throws -> HTTPResponse
 }
 
@@ -54,14 +55,15 @@ struct HTTPClientImpl: HTTPClient {
     func sendRequest(
         _ method: HTTPMethod,
         _ url: URLConvertible,
-        _ body: (some Encodable)?
+        headers: HTTPHeaders,
+        body: (some Encodable)?
     ) async throws -> HTTPResponse {
         let req = AF.request(
             url,
             method: method,
             parameters: body,
-            encoder: JSONParameterEncoder.default
-        )
+            headers: headers
+        )//.redirect(using: .doNotFollow)
 
         let resp = await req.serializingData(emptyResponseCodes: [204, 205, 404]).response
 

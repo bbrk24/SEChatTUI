@@ -12,8 +12,15 @@ struct AuthHandlerImpl: AuthHandler {
         self.client = client
     }
 
-    func getFKey() async throws -> String {
-        let response = try await client.sendRequest(.get, "https://meta.stackexchange.com/users/login", nil as Empty?)
+    func getFKey(_ host: String) async throws -> String {
+        let response = try await client.sendRequest(
+            .get,
+            "https://\(host)/users/login",
+            headers: [
+                "Referer": "https://\(host)/"
+            ],
+            body: nil as Empty?
+        )
         let encoding = Util.getEncoding(headers: response.headers)
 
         guard let htmlStr = String(data: response.data, encoding: encoding) else {
@@ -25,42 +32,47 @@ struct AuthHandlerImpl: AuthHandler {
     }
 
     func login(email: String, password: String?, host: String) async throws -> (fkey: String, id: String) {
-        let fkey = try await getFKey()
+        let fkey = try await getFKey(host)
 
         if let password, !password.isEmpty {
+            let baseURL = "https://\(host)/"
+
+            // Firefox doesn't show me ANYTHING about this request. There's no headers, no cookies, no request body, no response body, no timings, NOTHING.
+            // I could be missing a header or sending the wrong payload and have no idea.
             try await client.sendRequest(
                 .post,
                 "https://\(host)/users/login-or-signup/validation/track",
-                LoginModel(email: email, password: password, fkey: fkey)
+                headers: [:],
+                body: LoginModel(email: email, password: password, fkey: fkey)
             ).assertResponseCode()
 
+            let loginURL = "https://\(host)/users/login?ssrc=head&returnurl=\(baseURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!)"
             let loginResp = try await client.sendRequest(
                 .post,
-                "https://\(host)/users/login",
-                LoadModel(email: email, password: password, fkey: fkey)
+                loginURL,
+                headers: [
+                    "Origin": "https://" + host,
+                    "Referer": loginURL
+                ],
+                body: LoadModel(email: email, password: password, fkey: fkey)
             )
-            try loginResp.assertResponseCode()
 
-            let loginEnc = Util.getEncoding(headers: loginResp.headers)
-            guard let htmlStr = String(data: loginResp.data, encoding: loginEnc) else {
-                throw SEChatTUIError.encodingMismatch(loginResp.data, loginEnc)
-            }
+            let htmlStr = try Util.getDataString(loginResp)
 
             let title = try SwiftSoup.parse(htmlStr).title()
             if title.contains("Human verification") {
                 throw SEChatTUIError.captcha
             }
-
-            // FIXME: this 404's
-            try await client.sendRequest(.post, "https://\(host)/users/login/universal/request", nil as Empty?).assertResponseCode()
         }
         
-        let chatFavoritesResp = try await client.sendRequest(.get, "https://chat.stackexchange.com/chats/join/favorite", nil as Empty?)
-        let chatFavoritesEnc = Util.getEncoding(headers: chatFavoritesResp.headers)
+        let chatFavoritesResp = try await client.sendRequest(
+            .get,
+            "https://chat.stackexchange.com/chats/join/favorite",
+            headers: [:],
+            body: nil as Empty?
+        )
 
-        guard let htmlStr = String(data: chatFavoritesResp.data, encoding: chatFavoritesEnc) else {
-            throw SEChatTUIError.encodingMismatch(chatFavoritesResp.data, chatFavoritesEnc)
-        }
+        let htmlStr = try Util.getDataString(chatFavoritesResp)
         let document = try SwiftSoup.parse(htmlStr)
 
         let userURLComponents = try document.select(".topbar-menu-links a").attr("href").split(separator: "/")

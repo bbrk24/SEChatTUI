@@ -62,4 +62,12 @@ enum Util {
             return .ascii
         }
     }
+
+    static func getDataString(_ response: HTTPResponse) throws -> String {
+        let enc = getEncoding(headers: response.headers)
+        guard let str = String(data: response.data, encoding: enc) else {
+            throw SEChatTUIError.encodingMismatch(response.data, enc)
+        }
+        return str
+    }
 }
