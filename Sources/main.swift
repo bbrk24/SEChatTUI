@@ -24,8 +24,7 @@ if let acctCookie = try? String(contentsOfFile: "acct.cookie"),
             .value: acctCookie,
             .domain: ".stackexchange.com",
             .path: "/",
-            .secure: true,
-            .expires: formatter.date(from: "2023-11-13T00:11:40Z")! // TODO: get this somehow
+            .secure: true
         ])!)
     AF.sessionConfiguration.httpCookieStorage!.setCookie(
         HTTPCookie(properties: [
@@ -33,8 +32,7 @@ if let acctCookie = try? String(contentsOfFile: "acct.cookie"),
             .value: uauthCookie,
             .domain: ".codegolf.stackexchange.com",
             .path: "/",
-            .secure: true,
-            .expires: formatter.date(from: "2023-05-13T00:16:40Z")!
+            .secure: true
         ])!
     )
     print("Set cookies!")
@@ -48,5 +46,3 @@ do {
 } catch {
     print("ERROR:", error)
 }
-
-print(AF.sessionConfiguration.httpCookieStorage?.cookies as Any)
