@@ -60,7 +60,8 @@ enum Util {
         case "windows-1254", "cswindows1254":
             return .windowsCP1254
         // Uh
-        default:
+        case let x?:
+            print("Unrecognized charset \(x)")
             return .ascii
         }
     }
@@ -78,11 +79,4 @@ enum Util {
         paramcharset.remove(charactersIn: "?&=;")
         return paramcharset
     }()
-
-    @discardableResult
-    static func setInterval(seconds interval: TimeInterval, tolerance: TimeInterval = 0.004, action: @escaping () -> Void) -> Timer {
-        let timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { _ in action() }
-        timer.tolerance = tolerance
-        return timer
-    }
 }

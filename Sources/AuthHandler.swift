@@ -13,12 +13,12 @@ struct AuthHandlerImpl: AuthHandler {
         self.client = client
     }
 
-    func getFKey(_ host: String) async throws -> String {
+    func getFKey() async throws -> String {
         let response = try await client.sendRequest(
             .get,
-            "https://\(host)/users/login",
+            "https://meta.stackexchange.com/users/login",
             headers: [
-                "Referer": "https://\(host)/"
+                "Referer": "https://meta.stackexchange.com/"
             ],
             body: nil as Empty?
         )
@@ -28,21 +28,26 @@ struct AuthHandlerImpl: AuthHandler {
             throw SEChatTUIError.encodingMismatch(response.data, encoding)
         }
 
-        let fkey = try SwiftSoup.parse(htmlStr).getElementsByAttributeValue("name", "fkey").attr("value")
+        let fkey = try SwiftSoup.parse(htmlStr).select("input[name=fkey]").attr("value")
         return fkey
     }
 
     func login(email: String, password: String?, host: String) async throws -> User {
-        let fkey = try await getFKey(host)
         let baseURL = "https://\(host)/"
 
         if let password, !password.isEmpty {
-            try await client.sendRequest(
+            let fkey = try await getFKey()
+
+            let trackResp = try await client.sendRequest(
                 .post,
                 "https://\(host)/users/login-or-signup/validation/track?email=\(email)&password=\(password.addingPercentEncoding(withAllowedCharacters: Util.paramcharset)!)&fkey=\(fkey)&isSignup=false&isLogin=true&isPassword=false&isAddLogin=false&hasCaptcha=false&ssrc=head&submitButton=Log%20In",
                 headers: [:],
                 body: nil as Empty?
-            ).assertResponseCode()
+            )
+            try trackResp.assertResponseCode()
+            if try Util.getDataString(trackResp) != "Login-OK" {
+                throw SEChatTUIError.notLoggedIn(trackResp)
+            }
 
             let loginURL = "https://\(host)/users/login?ssrc=head&returnurl=\(baseURL.addingPercentEncoding(withAllowedCharacters: Util.paramcharset)!)"
             let loginResp = try await client.sendRequest(
@@ -56,24 +61,18 @@ struct AuthHandlerImpl: AuthHandler {
             )
 
             let loginHTMLStr = try Util.getDataString(loginResp)
+            try loginHTMLStr.write(toFile: "login.html", atomically: false, encoding: .utf8)
 
             let title = try SwiftSoup.parse(loginHTMLStr).title()
             if title.contains("Human verification") {
                 throw SEChatTUIError.captcha()
             }
-
-            print(AF.sessionConfiguration.httpCookieStorage?.cookies as Any)
         }
 
-        // // Fire and forget this request. Other clients use it, and it doesn't do any harm, but it doesn't seem to do anything.
-        // Task { [client] in // Capture [client] explicitly as not to capture [self] implicitly
-        //     try? await client.sendRequest(
-        //         .post, 
-        //         "https://\(host)/users/login/universal/request",
-        //         headers: [:],
-        //         body: nil as Empty?
-        //     )
-        // }
+        guard let cookies = AF.sessionConfiguration.httpCookieStorage?.cookies,
+              cookies.contains(where: { $0.name == "acct" }) else {
+            throw SEChatTUIError.notLoggedIn(nil)
+        }
 
         let chatResp = try await client.sendRequest(
             .get,
@@ -96,6 +95,10 @@ struct AuthHandlerImpl: AuthHandler {
         }
 
         let chatFKey = try document.select("input[name=fkey]").attr("value")
+
+        guard cookies.contains(where: { $0.name == "sechatusr" }) else {
+            throw SEChatTUIError.notLoggedIn(chatResp)
+        }
 
         return User(fkey: chatFKey, id: chatID)
     }

@@ -51,8 +51,9 @@ struct HTTPClientImpl: HTTPClient {
         sessionConfiguration.httpShouldSetCookies = true
         sessionConfiguration.httpCookieStorage?.cookieAcceptPolicy = .always
         sessionConfiguration.headers.add(.init(
-            name: "User-Agent", 
-            value: "Mozilla/5.0 (compatible; automated; +https://github.com/bbrk24/SEChatTUI)"
+            name: "User-Agent",
+            // I haven't assigned versions yet so just 0.0.1 for now
+            value: "Mozilla/5.0 (compatible; automated; +https://github.com/bbrk24/SEChatTUI) SEChatTUI/0.0.1"
         ))
     }
 

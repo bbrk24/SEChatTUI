@@ -5,6 +5,7 @@ enum SEChatTUIError: Error, CustomStringConvertible {
     case captcha(file: StaticString = #fileID, line: UInt = #line)
     case badResponseCode(Int?, file: StaticString = #fileID, line: UInt = #line)
     case htmlParserError(String, file: StaticString = #fileID, line: UInt = #line)
+    case notLoggedIn(HTTPResponse?, file: StaticString = #fileID, line: UInt = #line)
 
     var description: String {
         switch self {
@@ -20,6 +21,12 @@ enum SEChatTUIError: Error, CustomStringConvertible {
             }
         case .htmlParserError(let desc, let file, let line):
             return "\(file):\(line): HTML parsing error: \(desc)"
+        case .notLoggedIn(let resp, let file, let line):
+            if let resp {
+                return "\(file):\(line): Unable to log in: \(resp)"
+            } else {
+                return "\(file):\(line): Unable to log in"
+            }
         }
     }
 
@@ -28,7 +35,8 @@ enum SEChatTUIError: Error, CustomStringConvertible {
         case .encodingMismatch(_, _, let file, let line),
             .captcha(let file, let line),
             .badResponseCode(_, let file, let line),
-            .htmlParserError(_, let file, let line):
+            .htmlParserError(_, let file, let line),
+            .notLoggedIn(_, let file, let line):
             return (file, line)
         }
     }
