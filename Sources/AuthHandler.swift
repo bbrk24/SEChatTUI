@@ -40,9 +40,9 @@ struct AuthHandlerImpl: AuthHandler {
 
             let trackResp = try await client.sendRequest(
                 .post,
-                "https://\(host)/users/login-or-signup/validation/track?email=\(email)&password=\(password.addingPercentEncoding(withAllowedCharacters: Util.paramcharset)!)&fkey=\(fkey)&isSignup=false&isLogin=true&isPassword=false&isAddLogin=false&hasCaptcha=false&ssrc=head&submitButton=Log%20In",
+                "https://\(host)/users/login-or-signup/validation/track",
                 headers: [:],
-                body: nil as Empty?
+                body: LoginModel(email: email, password: password, fkey: fkey)
             )
             try trackResp.assertResponseCode()
             if try Util.getDataString(trackResp) != "Login-OK" {

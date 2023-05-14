@@ -75,8 +75,8 @@ enum Util {
     }
 
     static var paramcharset: CharacterSet = {
-        var paramcharset = CharacterSet.urlQueryAllowed
-        paramcharset.remove(charactersIn: "?&=;")
+        var paramcharset = CharacterSet.afURLQueryAllowed
+        paramcharset.remove(charactersIn: "/?")
         return paramcharset
     }()
 }

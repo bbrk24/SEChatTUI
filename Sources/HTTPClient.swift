@@ -44,7 +44,19 @@ protocol HTTPClient {
 }
 
 struct HTTPClientImpl: HTTPClient {
+    private let encoder: ParameterEncoder
+
     init() {
+        self.encoder = URLEncodedFormParameterEncoder(
+            encoder: .init(
+                alphabetizeKeyValuePairs: false,
+                boolEncoding: .literal,
+                nilEncoding: .dropValue,
+                allowedCharacters: Util.paramcharset
+            ),
+            destination: .httpBody
+        )
+
         let sessionConfiguration = AF.sessionConfiguration
         sessionConfiguration.httpCookieStorage = .shared
         sessionConfiguration.httpCookieAcceptPolicy = .always
@@ -67,6 +79,7 @@ struct HTTPClientImpl: HTTPClient {
             url,
             method: method,
             parameters: body,
+            encoder: self.encoder,
             headers: headers
         )
 
