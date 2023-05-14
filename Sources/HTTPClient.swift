@@ -52,6 +52,7 @@ struct HTTPClientImpl: HTTPClient {
                 alphabetizeKeyValuePairs: false,
                 boolEncoding: .literal,
                 nilEncoding: .dropValue,
+                spaceEncoding: .plusReplaced,
                 allowedCharacters: Util.paramcharset
             ),
             destination: .httpBody

@@ -15,7 +15,7 @@ struct LoginModel: Encodable {
     var isAddLogin = false
     var hasCaptcha = false
     var ssrc = "head"
-    var submitButton = "Log In"
+    var submitButton = "Log in"
 }
 
 struct User: Identifiable {
